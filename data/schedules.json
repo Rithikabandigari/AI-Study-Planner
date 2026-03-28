@@ -1,0 +1,159 @@
+{
+  "rithikabandigari16@gmail.com": [
+    {
+      "created": "2026-03-27 19:25",
+      "days": [
+        {
+          "date": "2026-03-27",
+          "label": "Friday, 27 Mar",
+          "tasks": [
+            {
+              "id": "2026-03-27_\ud83e\uddd8_Morning_Meditation_9709",
+              "name": "\ud83e\uddd8 Morning Meditation",
+              "start": "06:00",
+              "end": "06:20",
+              "duration": 20,
+              "deadline": "",
+              "difficulty": "Easy",
+              "status": "Completed",
+              "auto": true
+            },
+            {
+              "id": "2026-03-27_ATCD_3473",
+              "name": "ATCD",
+              "start": "06:25",
+              "end": "08:25",
+              "duration": 120,
+              "deadline": "29-03-2026",
+              "difficulty": "Hard",
+              "status": "Pending",
+              "auto": false
+            },
+            {
+              "id": "2026-03-27_RES_1231",
+              "name": "RES",
+              "start": "08:35",
+              "end": "10:35",
+              "duration": 120,
+              "deadline": "30-03-2026",
+              "difficulty": "Medium",
+              "status": "Pending",
+              "auto": false
+            },
+            {
+              "id": "2026-03-27_\ud83d\udcdd_Revision:_ATCD_+_R_8902",
+              "name": "\ud83d\udcdd Revision: ATCD + RES",
+              "start": "10:55",
+              "end": "11:40",
+              "duration": 45,
+              "deadline": "",
+              "difficulty": "Easy",
+              "status": "Pending",
+              "auto": true
+            }
+          ]
+        },
+        {
+          "date": "2026-03-28",
+          "label": "Saturday, 28 Mar",
+          "tasks": [
+            {
+              "id": "2026-03-28_\ud83e\uddd8_Morning_Meditation_9217",
+              "name": "\ud83e\uddd8 Morning Meditation",
+              "start": "06:00",
+              "end": "06:20",
+              "duration": 20,
+              "deadline": "",
+              "difficulty": "Easy",
+              "status": "Pending",
+              "auto": true
+            },
+            {
+              "id": "2026-03-28_FSD_1662",
+              "name": "FSD",
+              "start": "06:25",
+              "end": "08:25",
+              "duration": 120,
+              "deadline": "29-03-2026",
+              "difficulty": "Hard",
+              "status": "Pending",
+              "auto": false
+            },
+            {
+              "id": "2026-03-28_ASSIGNMENT_5083",
+              "name": "ASSIGNMENT",
+              "start": "08:35",
+              "end": "09:35",
+              "duration": 60,
+              "deadline": "30-03-2026",
+              "difficulty": "Easy",
+              "status": "Pending",
+              "auto": false
+            },
+            {
+              "id": "2026-03-28_\ud83d\udcdd_Revision:_FSD_+_AS_5435",
+              "name": "\ud83d\udcdd Revision: FSD + ASSIGNMENT",
+              "start": "09:55",
+              "end": "10:40",
+              "duration": 45,
+              "deadline": "",
+              "difficulty": "Easy",
+              "status": "Pending",
+              "auto": true
+            }
+          ]
+        },
+        {
+          "date": "2026-03-29",
+          "label": "Sunday, 29 Mar",
+          "tasks": [
+            {
+              "id": "2026-03-29_\ud83e\uddd8_Morning_Meditation_2882",
+              "name": "\ud83e\uddd8 Morning Meditation",
+              "start": "06:30",
+              "end": "06:50",
+              "duration": 20,
+              "deadline": "",
+              "difficulty": "Easy",
+              "status": "Pending",
+              "auto": true
+            },
+            {
+              "id": "2026-03-29_ES_3648",
+              "name": "ES",
+              "start": "06:55",
+              "end": "08:35",
+              "duration": 100,
+              "deadline": "30-03-2026",
+              "difficulty": "Medium",
+              "status": "Pending",
+              "auto": false
+            },
+            {
+              "id": "2026-03-29_\ud83d\udcdd_Revision:_ES_1060",
+              "name": "\ud83d\udcdd Revision: ES",
+              "start": "08:45",
+              "end": "09:10",
+              "duration": 25,
+              "deadline": "",
+              "difficulty": "Easy",
+              "status": "Pending",
+              "auto": true
+            },
+            {
+              "id": "2026-03-29_\ud83d\udd01_Final_Recap:_All_T_1167",
+              "name": "\ud83d\udd01 Final Recap: All Topics",
+              "start": "09:15",
+              "end": "10:05",
+              "duration": 50,
+              "deadline": "",
+              "difficulty": "Easy",
+              "status": "Pending",
+              "auto": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
