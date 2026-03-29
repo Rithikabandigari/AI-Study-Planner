@@ -220,14 +220,17 @@ def send_email_reminder_sendgrid(to_email, user_name, task_name, start_time):
 
 def check_reminders():
     now = datetime.now()
+    st.write(f"DEBUG: Current time = {now.strftime('%H:%M')}")
+    st.write(f"DEBUG: Schedules count = {len(st.session_state.schedules)}")
     for sched in st.session_state.schedules:
         for day in sched.get("days", []):
+            st.write(f"DEBUG: Checking day {day['date']}")
             for task in day.get("tasks", []):
                 tid = task.get("id", "")
-                if tid in st.session_state.reminders_sent: continue
                 try:
-                    dt   = datetime.strptime(f"{day['date']} {task['start']}", "%Y-%m-%d %H:%M")
+                    dt = datetime.strptime(f"{day['date']} {task['start']}", "%Y-%m-%d %H:%M")
                     diff = (dt - now).total_seconds() / 60
+                    st.write(f"DEBUG: Task={task['name']}, start={task['start']}, diff={round(diff,1)} min, sent={tid in st.session_state.reminders_sent}")
                     if 0 < diff <= 15:
                         st.session_state.in_app_reminders.append(
                             {"msg": f"'{task['name']}' starts at {task['start']} today!", "task_id": tid})
@@ -239,8 +242,8 @@ def check_reminders():
                             args=(user_email, user_name, task["name"], task["start"]),
                             daemon=True
                         ).start()
-                except:
-                    pass
+                except Exception as e:
+                    st.write(f"DEBUG ERROR: {e}")
 
 # ── Schedule generator ────────────────────────────────────────────────────────
 def generate_schedule(plan_days, available, committed, tasks):
