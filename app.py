@@ -219,7 +219,11 @@ def send_email_reminder_sendgrid(to_email, user_name, task_name, start_time):
         return False
 
 def check_reminders():
-    now = datetime.now()
+    def check_reminders():
+    from datetime import timezone, timedelta
+    IST = timezone(timedelta(hours=5, minutes=30))
+    now = datetime.now(IST).replace(tzinfo=None)
+
     st.write(f"DEBUG: Current time = {now.strftime('%H:%M')}")
     st.write(f"DEBUG: Schedules count = {len(st.session_state.schedules)}")
     for sched in st.session_state.schedules:
