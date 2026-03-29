@@ -234,7 +234,7 @@ def check_reminders():
                     dt = datetime.strptime(f"{day['date']} {task['start']}", "%Y-%m-%d %H:%M")
                     diff = (dt - now).total_seconds() / 60
                     st.write(f"DEBUG: Task={task['name']}, start={task['start']}, diff={round(diff,1)} min, sent={tid in st.session_state.reminders_sent}")
-                    if 0 < diff <= 15:
+                    if -5 < diff <= 16:
                         st.session_state.in_app_reminders.append(
                             {"msg": f"'{task['name']}' starts at {task['start']} today!", "task_id": tid})
                         st.session_state.reminders_sent.add(tid)
