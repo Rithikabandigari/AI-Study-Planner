@@ -219,7 +219,6 @@ def send_email_reminder_sendgrid(to_email, user_name, task_name, start_time):
         return False
 
 def check_reminders():
-    def check_reminders():
     from datetime import timezone, timedelta
     IST = timezone(timedelta(hours=5, minutes=30))
     now = datetime.now(IST).replace(tzinfo=None)
