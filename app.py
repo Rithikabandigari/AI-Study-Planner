@@ -6,11 +6,8 @@ import threading
 import time
 import urllib.parse
 import urllib.request
-import smtplib
 import base64
 from datetime import datetime, timedelta
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 # ── Supabase (via REST API) ───────────────────────────────────────────────────
 SUPABASE_URL = st.secrets["supabase"]["url"]
@@ -175,32 +172,50 @@ def greeting():
 def difficulty_color(d):
     return {"Easy":"#4CAF82","Medium":"#FB8C00","Hard":"#E53935"}.get(d,"#888")
 
-# ── Email reminder ────────────────────────────────────────────────────────────
-def send_email_reminder(to_email, task_name, start_time, access_token="", sender_email=""):
-    if not access_token or not sender_email: return False
+# ── SendGrid Email Reminder ───────────────────────────────────────────────────
+def send_email_reminder_sendgrid(to_email, user_name, task_name, start_time):
     try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"Study Reminder: {task_name} starts in 15 min!"
-        msg["From"] = sender_email
-        msg["To"]   = to_email
-        msg.attach(MIMEText(f"""
-        <div style="font-family:sans-serif;max-width:500px;margin:auto;background:#f8f6f1;
-                    border-radius:12px;padding:28px;border:1px solid #c8ddd3;">
-          <h2 style="color:#1B5E40;margin:0 0 8px;">AI Study Planner</h2>
-          <div style="background:#fff;border-radius:10px;padding:20px;border:1px solid #c8ddd3;">
-            <p style="margin:0 0 8px;font-size:1.1rem;font-weight:600;">{task_name}</p>
-            <p style="margin:0;color:#6B8F77;">Starts at <b>{start_time}</b> - 15 minutes away!</p>
-          </div>
-        </div>""", "html"))
-        auth_str   = f"user={sender_email}\x01auth=Bearer {access_token}\x01\x01"
-        auth_bytes = base64.b64encode(auth_str.encode()).decode()
-        with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
-            smtp.ehlo(); smtp.starttls(); smtp.ehlo()
-            smtp.docmd("AUTH", "XOAUTH2 " + auth_bytes)
-            smtp.sendmail(sender_email, to_email, msg.as_string())
+        sendgrid_api_key = st.secrets["sendgrid"]["api_key"]
+        sender_email = st.secrets["sendgrid"]["sender_email"]
+
+        payload = json.dumps({
+            "personalizations": [{
+                "to": [{"email": to_email, "name": user_name}],
+                "subject": f"Study Reminder: {task_name} starts in 15 min!"
+            }],
+            "from": {"email": sender_email, "name": "AI Study Planner"},
+            "content": [{
+                "type": "text/html",
+                "value": f"""
+                <div style="font-family:sans-serif;max-width:500px;margin:auto;background:#f8f6f1;
+                            border-radius:12px;padding:28px;border:1px solid #c8ddd3;">
+                  <h2 style="color:#1B5E40;margin:0 0 8px;">AI Study Planner</h2>
+                  <p style="color:#6B8F77;margin:0 0 16px;">Hi {user_name}, your study session is starting soon!</p>
+                  <div style="background:#fff;border-radius:10px;padding:20px;border:1px solid #c8ddd3;">
+                    <p style="margin:0 0 8px;font-size:1.1rem;font-weight:600;color:#0D1F16;">{task_name}</p>
+                    <p style="margin:0;color:#6B8F77;">Starts at <b style="color:#1B5E40;">{start_time}</b> — only 15 minutes away!</p>
+                  </div>
+                  <p style="color:#6B8F77;font-size:.85rem;margin-top:16px;">
+                    Open your Study Planner to get started.
+                  </p>
+                </div>"""
+            }]
+        }).encode()
+
+        req = urllib.request.Request(
+            "https://api.sendgrid.com/v3/mail/send",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {sendgrid_api_key}",
+                "Content-Type": "application/json"
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(req) as r:
+            print(f"Email sent to {to_email}, status: {r.status}")
         return True
     except Exception as e:
-        print(f"Email error: {e}")
+        print(f"SendGrid error: {e}")
         return False
 
 def check_reminders():
@@ -217,11 +232,15 @@ def check_reminders():
                         st.session_state.in_app_reminders.append(
                             {"msg": f"'{task['name']}' starts at {task['start']} today!", "task_id": tid})
                         st.session_state.reminders_sent.add(tid)
-                        token  = st.session_state.get("google_access_token", "")
-                        sender = st.session_state.user["email"]
-                        threading.Thread(target=send_email_reminder,
-                            args=(sender, task["name"], task["start"], token, sender), daemon=True).start()
-                except: pass
+                        user_email = st.session_state.user["email"]
+                        user_name  = st.session_state.user["name"]
+                        threading.Thread(
+                            target=send_email_reminder_sendgrid,
+                            args=(user_email, user_name, task["name"], task["start"]),
+                            daemon=True
+                        ).start()
+                except:
+                    pass
 
 # ── Schedule generator ────────────────────────────────────────────────────────
 def generate_schedule(plan_days, available, committed, tasks):
@@ -399,6 +418,7 @@ def login_page():
             st.markdown("<p style='text-align:center;color:var(--muted);font-size:.9rem;'>New user?</p>", unsafe_allow_html=True)
             if st.button("Create Account", use_container_width=True):
                 st.session_state.page = "register"; st.rerun()
+
 # ── Register page ─────────────────────────────────────────────────────────────
 def register_page():
     topbar()
@@ -694,11 +714,7 @@ def tab_profile():
         new_email = st.text_input("Edit Gmail", value=user["email"], key="prof_email")
 
     st.markdown("---")
-    if st.session_state.get("google_access_token"):
-        st.markdown('<div class="alert-success">🔔 Email reminders are <b>active</b>.</div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="alert-error" style="background:#FFF8E1;border-left-color:#F9A825;color:#5D4037;">'
-                    '⚠️ Email reminders inactive. Sign in with Google to enable.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="alert-success">🔔 Email reminders are <b>active</b> via SendGrid.</div>', unsafe_allow_html=True)
 
     if st.button("💾 Save Changes", type="primary"):
         errs = []
