@@ -459,8 +459,8 @@ def register_page():
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 def dashboard_page():
     check_reminders()
-    st.markdown('<script>setTimeout(function(){window.location.reload();},60000);</script>',
-                unsafe_allow_html=True)
+    st.markdown('<script>setTimeout(function(){window.location.reload();},10000);</script>',
+            unsafe_allow_html=True)
 
     for r in st.session_state.in_app_reminders:
         st.markdown(f'<div class="reminder-toast">🔔 {r["msg"]}</div>', unsafe_allow_html=True)
