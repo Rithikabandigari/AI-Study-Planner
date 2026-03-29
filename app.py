@@ -293,7 +293,7 @@ def generate_schedule(plan_days, available, committed, tasks):
                         "status":"Pending","auto":is_auto})
             return end, True
 
-        current, ok = add_slot(current, "🧘 Morning Meditation", 20, difficulty="Easy", is_auto=True)
+        current, ok = add_slot(current, "🧘Meditation", 20, difficulty="Easy", is_auto=True)
         if ok: current += timedelta(minutes=5)
 
         todays = sorted(day_task_map.get(i,[]), key=lambda t: diff_order.get(t.get("difficulty","Medium"),2))
