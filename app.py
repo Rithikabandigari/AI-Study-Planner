@@ -314,7 +314,7 @@ def get_google_auth_url():
         "client_id":     st.secrets["google"]["client_id"],
         "redirect_uri":  st.secrets["google"]["redirect_uri"],
         "response_type": "code",
-        "scope":         "openid email profile https://mail.google.com/",
+        "scope":         "openid email profile",
         "access_type":   "offline",
         "prompt":        "consent select_account",
     }
@@ -371,21 +371,7 @@ def login_page():
         with st.container(border=True):
             st.markdown('<div class="card-title">🔐 Login</div>', unsafe_allow_html=True)
             auth_url = get_google_auth_url()
-            st.markdown(f"""
-            <a href="{auth_url}" target="_self" style="text-decoration:none;">
-              <div style="display:flex;align-items:center;justify-content:center;gap:12px;
-                background:#fff;border:2px solid #c8ddd3;border-radius:50px;padding:11px 24px;
-                cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;color:#1B5E40;
-                box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:8px;">
-                <svg width="20" height="20" viewBox="0 0 48 48">
-                  <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.7 2.5 30.2 0 24 0 14.8 0 6.9 5.4 3 13.3l7.8 6C12.6 13.1 17.9 9.5 24 9.5z"/>
-                  <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17z"/>
-                  <path fill="#FBBC05" d="M10.8 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7L2.5 13.3A23.9 23.9 0 0 0 0 24c0 3.8.9 7.4 2.5 10.6l8.3-5.9z"/>
-                  <path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.5l-7.5-5.8c-2.1 1.4-4.7 2.3-7.7 2.3-6.1 0-11.3-3.6-13.2-8.8l-7.8 6C6.9 42.6 14.8 48 24 48z"/>
-                </svg>
-                Continue with Google
-              </div>
-            </a>""", unsafe_allow_html=True)
+            st.link_button("🔗 Continue with Google", auth_url, use_container_width=True)
 
             st.markdown("<div style='text-align:center;color:var(--muted);margin:12px 0;font-size:.85rem;'>── or use email & password ──</div>", unsafe_allow_html=True)
             email    = st.text_input("Gmail Address", placeholder="yourname@gmail.com", key="li_email")
@@ -413,7 +399,6 @@ def login_page():
             st.markdown("<p style='text-align:center;color:var(--muted);font-size:.9rem;'>New user?</p>", unsafe_allow_html=True)
             if st.button("Create Account", use_container_width=True):
                 st.session_state.page = "register"; st.rerun()
-
 # ── Register page ─────────────────────────────────────────────────────────────
 def register_page():
     topbar()
