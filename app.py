@@ -68,7 +68,17 @@ def save_schedules():
             "email": st.session_state.user["email"],
             "data":  st.session_state.schedules,
         })
+def load_reminders_sent(email):
+    row = sb_get("reminders_sent", "email", email)
+    if row and "task_ids" in row:
+        return set(row["task_ids"])
+    return set()
 
+def save_reminders_sent(email, task_ids):
+    sb_upsert("reminders_sent", {
+        "email": email,
+        "task_ids": list(task_ids)
+    })
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(page_title="AI Study Planner", page_icon="📚",
                    layout="wide", initial_sidebar_state="collapsed")
@@ -222,19 +232,15 @@ def check_reminders():
     from datetime import timezone, timedelta
     IST = timezone(timedelta(hours=5, minutes=30))
     now = datetime.now(IST).replace(tzinfo=None)
-
-    st.write(f"DEBUG: Current time = {now.strftime('%H:%M')}")
-    st.write(f"DEBUG: Schedules count = {len(st.session_state.schedules)}")
     for sched in st.session_state.schedules:
         for day in sched.get("days", []):
-            st.write(f"DEBUG: Checking day {day['date']}")
             for task in day.get("tasks", []):
                 tid = task.get("id", "")
+                if tid in st.session_state.reminders_sent: continue
                 try:
-                    dt = datetime.strptime(f"{day['date']} {task['start']}", "%Y-%m-%d %H:%M")
+                    dt   = datetime.strptime(f"{day['date']} {task['start']}", "%Y-%m-%d %H:%M")
                     diff = (dt - now).total_seconds() / 60
-                    st.write(f"DEBUG: Task={task['name']}, start={task['start']}, diff={round(diff,1)} min, sent={tid in st.session_state.reminders_sent}")
-                    if -5 < diff <= 16:
+                    if 0 < diff <= 15:
                         st.session_state.in_app_reminders.append(
                             {"msg": f"'{task['name']}' starts at {task['start']} today!", "task_id": tid})
                         st.session_state.reminders_sent.add(tid)
@@ -245,8 +251,8 @@ def check_reminders():
                             args=(user_email, user_name, task["name"], task["start"]),
                             daemon=True
                         ).start()
-                except Exception as e:
-                    st.write(f"DEBUG ERROR: {e}")
+                except:
+                    pass
 
 # ── Schedule generator ────────────────────────────────────────────────────────
 def generate_schedule(plan_days, available, committed, tasks):
