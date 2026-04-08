@@ -402,7 +402,7 @@ def login_page():
         with st.container(border=True):
             st.markdown('<div class="card-title">🔐 Login</div>', unsafe_allow_html=True)
             auth_url = get_google_auth_url()
-            st.link_button("🔗 Continue with Google", auth_url, use_container_width=True)
+            st.link_button("🟦🟥🟨🟩Continue with Google", auth_url, use_container_width=True)
 
             st.markdown("<div style='text-align:center;color:var(--muted);margin:12px 0;font-size:.85rem;'>── or use email & password ──</div>", unsafe_allow_html=True)
             email    = st.text_input("Gmail Address", placeholder="yourname@gmail.com", key="li_email")
