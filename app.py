@@ -6,8 +6,10 @@ import threading
 import time
 import urllib.parse
 import urllib.request
-import base64
+import smtplib
 from datetime import datetime, timedelta
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # ── Supabase (via REST API) ───────────────────────────────────────────────────
 SUPABASE_URL = st.secrets["supabase"]["url"]
@@ -68,17 +70,7 @@ def save_schedules():
             "email": st.session_state.user["email"],
             "data":  st.session_state.schedules,
         })
-def load_reminders_sent(email):
-    row = sb_get("reminders_sent", "email", email)
-    if row and "task_ids" in row:
-        return set(row["task_ids"])
-    return set()
 
-def save_reminders_sent(email, task_ids):
-    sb_upsert("reminders_sent", {
-        "email": email,
-        "task_ids": list(task_ids)
-    })
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(page_title="AI Study Planner", page_icon="📚",
                    layout="wide", initial_sidebar_state="collapsed")
@@ -182,56 +174,39 @@ def greeting():
 def difficulty_color(d):
     return {"Easy":"#4CAF82","Medium":"#FB8C00","Hard":"#E53935"}.get(d,"#888")
 
-# ── SendGrid Email Reminder ───────────────────────────────────────────────────
-def send_email_reminder_sendgrid(to_email, user_name, task_name, start_time):
+# ── Email reminder ────────────────────────────────────────────────────────────
+def send_email_reminder(to_email, task_name, start_time, access_token="", sender_email=""):
     try:
-        sendgrid_api_key = st.secrets["sendgrid"]["api_key"]
-        sender_email = st.secrets["sendgrid"]["sender_email"]
-
-        payload = json.dumps({
-            "personalizations": [{
-                "to": [{"email": to_email, "name": user_name}],
-                "subject": f"Study Reminder: {task_name} starts in 15 min!"
-            }],
-            "from": {"email": sender_email, "name": "AI Study Planner"},
-            "content": [{
-                "type": "text/html",
-                "value": f"""
-                <div style="font-family:sans-serif;max-width:500px;margin:auto;background:#f8f6f1;
-                            border-radius:12px;padding:28px;border:1px solid #c8ddd3;">
-                  <h2 style="color:#1B5E40;margin:0 0 8px;">AI Study Planner</h2>
-                  <p style="color:#6B8F77;margin:0 0 16px;">Hi {user_name}, your study session is starting soon!</p>
-                  <div style="background:#fff;border-radius:10px;padding:20px;border:1px solid #c8ddd3;">
-                    <p style="margin:0 0 8px;font-size:1.1rem;font-weight:600;color:#0D1F16;">{task_name}</p>
-                    <p style="margin:0;color:#6B8F77;">Starts at <b style="color:#1B5E40;">{start_time}</b> — only 15 minutes away!</p>
-                  </div>
-                  <p style="color:#6B8F77;font-size:.85rem;margin-top:16px;">
-                    Open your Study Planner to get started.
-                  </p>
-                </div>"""
-            }]
-        }).encode()
-
-        req = urllib.request.Request(
-            "https://api.sendgrid.com/v3/mail/send",
-            data=payload,
-            headers={
-                "Authorization": f"Bearer {sendgrid_api_key}",
-                "Content-Type": "application/json"
-            },
-            method="POST"
-        )
-        with urllib.request.urlopen(req) as r:
-            print(f"Email sent to {to_email}, status: {r.status}")
+        gmail_user     = st.secrets["gmail"]["sender_email"]
+        gmail_password = st.secrets["gmail"]["app_password"]
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"📚 Study Reminder: {task_name} starts in 15 min!"
+        msg["From"]    = gmail_user
+        msg["To"]      = to_email
+        msg.attach(MIMEText(f"""
+        <div style="font-family:sans-serif;max-width:500px;margin:auto;background:#f8f6f1;
+                    border-radius:12px;padding:28px;border:1px solid #c8ddd3;">
+          <h2 style="color:#1B5E40;margin:0 0 8px;">&#128218; AI Study Planner</h2>
+          <p style="color:#555;margin:0 0 20px;">Task reminder</p>
+          <div style="background:#fff;border-radius:10px;padding:20px;border:1px solid #c8ddd3;">
+            <p style="margin:0 0 8px;font-size:1.1rem;font-weight:600;color:#0D1F16;">&#9200; {task_name}</p>
+            <p style="margin:0;color:#6B8F77;">Starts at <b>{start_time}</b> - only 15 minutes away!</p>
+          </div>
+          <p style="margin:20px 0 0;font-size:.85rem;color:#aaa;">AI Study Planner - Good luck!</p>
+        </div>""", "html"))
+        with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.login(gmail_user, gmail_password)
+            smtp.sendmail(gmail_user, to_email, msg.as_string())
+        print(f"Reminder sent to {to_email} for: {task_name}")
         return True
     except Exception as e:
-        print(f"SendGrid error: {e}")
+        print(f"Email error: {e}")
         return False
 
 def check_reminders():
-    from datetime import timezone, timedelta
-    IST = timezone(timedelta(hours=5, minutes=30))
-    now = datetime.now(IST).replace(tzinfo=None)
+    now = datetime.now()
     for sched in st.session_state.schedules:
         for day in sched.get("days", []):
             for task in day.get("tasks", []):
@@ -244,15 +219,11 @@ def check_reminders():
                         st.session_state.in_app_reminders.append(
                             {"msg": f"'{task['name']}' starts at {task['start']} today!", "task_id": tid})
                         st.session_state.reminders_sent.add(tid)
-                        user_email = st.session_state.user["email"]
-                        user_name  = st.session_state.user["name"]
-                        threading.Thread(
-                            target=send_email_reminder_sendgrid,
-                            args=(user_email, user_name, task["name"], task["start"]),
-                            daemon=True
-                        ).start()
-                except:
-                    pass
+                        token  = st.session_state.get("google_access_token", "")
+                        sender = st.session_state.user["email"]
+                        threading.Thread(target=send_email_reminder,
+                            args=(sender, task["name"], task["start"], token, sender), daemon=True).start()
+                except: pass
 
 # ── Schedule generator ────────────────────────────────────────────────────────
 def generate_schedule(plan_days, available, committed, tasks):
@@ -305,7 +276,7 @@ def generate_schedule(plan_days, available, committed, tasks):
                         "status":"Pending","auto":is_auto})
             return end, True
 
-        current, ok = add_slot(current, "🧘Meditation", 20, difficulty="Easy", is_auto=True)
+        current, ok = add_slot(current, "🧘 Morning Meditation", 20, difficulty="Easy", is_auto=True)
         if ok: current += timedelta(minutes=5)
 
         todays = sorted(day_task_map.get(i,[]), key=lambda t: diff_order.get(t.get("difficulty","Medium"),2))
@@ -345,7 +316,7 @@ def get_google_auth_url():
         "client_id":     st.secrets["google"]["client_id"],
         "redirect_uri":  st.secrets["google"]["redirect_uri"],
         "response_type": "code",
-        "scope":         "openid email profile",
+        "scope":         "openid email profile https://mail.google.com/",
         "access_type":   "offline",
         "prompt":        "consent select_account",
     }
@@ -403,21 +374,20 @@ def login_page():
             st.markdown('<div class="card-title">🔐 Login</div>', unsafe_allow_html=True)
             auth_url = get_google_auth_url()
             st.markdown(f"""
-<a href="{auth_url}" target="_self" style="text-decoration:none;display:block;margin-bottom:8px;">
-  <div style="display:flex;align-items:center;justify-content:center;gap:12px;
-    background:#fff;border:2px solid #c8ddd3;border-radius:50px;padding:11px 24px;
-    cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;color:#1B5E40;
-    box-shadow:0 2px 8px rgba(0,0,0,.06);">
-    <svg width="20" height="20" viewBox="0 0 48 48">
-      <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.7 2.5 30.2 0 24 0 14.8 0 6.9 5.4 3 13.3l7.8 6C12.6 13.1 17.9 9.5 24 9.5z"/>
-      <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17z"/>
-      <path fill="#FBBC05" d="M10.8 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7L2.5 13.3A23.9 23.9 0 0 0 0 24c0 3.8.9 7.4 2.5 10.6l8.3-5.9z"/>
-      <path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.5l-7.5-5.8c-2.1 1.4-4.7 2.3-7.7 2.3-6.1 0-11.3-3.6-13.2-8.8l-7.8 6C6.9 42.6 14.8 48 24 48z"/>
-    </svg>
-    Continue with Google
-  </div>
-</a>
-""", unsafe_allow_html=True)
+            <a href="{auth_url}" target="_self" style="text-decoration:none;">
+              <div style="display:flex;align-items:center;justify-content:center;gap:12px;
+                background:#fff;border:2px solid #c8ddd3;border-radius:50px;padding:11px 24px;
+                cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;color:#1B5E40;
+                box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:8px;">
+                <svg width="20" height="20" viewBox="0 0 48 48">
+                  <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.7 2.5 30.2 0 24 0 14.8 0 6.9 5.4 3 13.3l7.8 6C12.6 13.1 17.9 9.5 24 9.5z"/>
+                  <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17z"/>
+                  <path fill="#FBBC05" d="M10.8 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7L2.5 13.3A23.9 23.9 0 0 0 0 24c0 3.8.9 7.4 2.5 10.6l8.3-5.9z"/>
+                  <path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.5l-7.5-5.8c-2.1 1.4-4.7 2.3-7.7 2.3-6.1 0-11.3-3.6-13.2-8.8l-7.8 6C6.9 42.6 14.8 48 24 48z"/>
+                </svg>
+                Continue with Google
+              </div>
+            </a>""", unsafe_allow_html=True)
 
             st.markdown("<div style='text-align:center;color:var(--muted);margin:12px 0;font-size:.85rem;'>── or use email & password ──</div>", unsafe_allow_html=True)
             email    = st.text_input("Gmail Address", placeholder="yourname@gmail.com", key="li_email")
@@ -480,8 +450,8 @@ def register_page():
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 def dashboard_page():
     check_reminders()
-    st.markdown('<script>setTimeout(function(){window.location.reload();},10000);</script>',
-            unsafe_allow_html=True)
+    st.markdown('<script>setTimeout(function(){window.location.reload();},60000);</script>',
+                unsafe_allow_html=True)
 
     for r in st.session_state.in_app_reminders:
         st.markdown(f'<div class="reminder-toast">🔔 {r["msg"]}</div>', unsafe_allow_html=True)
@@ -542,29 +512,27 @@ def tab_home():
     today_str = datetime.today().strftime("%Y-%m-%d")
     st.markdown('<div class="card"><div class="card-title">📅 Today\'s Tasks</div>', unsafe_allow_html=True)
     found = False
-    pill_map = {"Pending": "pill-pending", "Completed": "pill-completed", "Missed": "pill-missed"}
     for sched in st.session_state.schedules:
         for day in sched.get("days",[]):
             if day["date"] == today_str:
                 for task in day["tasks"]:
                     found = True
-                    task_status = task["status"]
-                    pill_cls = pill_map.get(task_status, "")
+                    pill  = {"Pending":"pill-pending","Completed":"pill-completed","Missed":"pill-missed"}
                     c1, c2, c3 = st.columns([0.1, 3, 1])
                     with c1:
-                        checked = st.checkbox("", key=f"chk_{task['id']}", value=(task_status == "Completed"))
-                    if checked and task_status != "Completed":
+                        checked = st.checkbox("", key=f"chk_{task['id']}", value=(task["status"]=="Completed"))
+                    if checked and task["status"] != "Completed":
                         task["status"] = "Completed"; save_schedules(); st.rerun()
                     with c2:
-                        st.markdown(
-                            f'<div style="display:flex;align-items:center;">'
-                            f'<span style="width:90px;color:var(--muted);font-size:.85rem;">{task["start"]}–{task["end"]}</span>'
-                            f'<span style="flex:1;font-weight:500;">{task["name"]}</span></div>',
-                            unsafe_allow_html=True)
+                        st.markdown(f'<div style="display:flex;align-items:center;">'
+                                    f'<span style="width:90px;color:var(--muted);font-size:.85rem;">{task["start"]}–{task["end"]}</span>'
+                                    f'<span style="flex:1;font-weight:500;">{task["name"]}</span></div>',
+                                    unsafe_allow_html=True)
                     with c3:
-                        st.markdown(
-                            f"<span class='task-pill {pill_cls}'>{task_status}</span>",
-                            unsafe_allow_html=True)
+                        status = task["status"]
+                        pill_class = pill.get(status, "")
+                        st.markdown(f"<span class='task-pill {pill_class}'>{status}</span>",
+                                    unsafe_allow_html=True)
     if not found:
         st.markdown("<p style='color:var(--muted);'>No tasks scheduled for today.</p>", unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
@@ -670,26 +638,25 @@ def tab_progress():
         st.bar_chart({"Completions":[c for _,c in sorted(by_hour.items())]}, use_container_width=True, color="#4CAF82")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    pill_map = {"Pending": "pill-pending", "Completed": "pill-completed", "Missed": "pill-missed"}
     st.markdown('<div class="card"><div class="card-title">📋 All Tasks</div>', unsafe_allow_html=True)
     for sched in st.session_state.schedules:
         for day in sched.get("days",[]):
             st.markdown(f"**{day['label']}**")
             for task in day["tasks"]:
-                task_status = task["status"]
-                pill_cls = pill_map.get(task_status, "")
+                pill = {"Pending":"pill-pending","Completed":"pill-completed","Missed":"pill-missed"}
                 c1, c2, c3 = st.columns([3,1,1])
                 with c1:
-                    st.markdown(
-                        f"{task['start']} \u2013 {task['end']}  **{task['name']}** "
-                        f"<span class='task-pill {pill_cls}'>{task_status}</span>",
-                        unsafe_allow_html=True)
+                    status = task["status"]
+                    pill_class = pill.get(status, "")
+                    st.markdown(f"{task['start']} – {task['end']}  **{task['name']}** "
+                                f"<span class='task-pill {pill_class}'>{status}</span>",
+                                unsafe_allow_html=True)
                 with c2:
-                    if task_status != "Completed":
+                    if task["status"] != "Completed":
                         if st.button("✅ Done", key=f"done_{task['id']}"):
                             task["status"]="Completed"; save_schedules(); st.rerun()
                 with c3:
-                    if task_status == "Pending":
+                    if task["status"] == "Pending":
                         if st.button("❌ Missed", key=f"miss_{task['id']}"):
                             task["status"]="Missed"; save_schedules(); st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
@@ -741,7 +708,7 @@ def tab_profile():
         new_email = st.text_input("Edit Gmail", value=user["email"], key="prof_email")
 
     st.markdown("---")
-    st.markdown('<div class="alert-success">🔔 Email reminders are <b>active</b> via SendGrid.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="alert-success">🔔 Email reminders are <b>active</b>.</div>', unsafe_allow_html=True)
 
     if st.button("💾 Save Changes", type="primary"):
         errs = []
